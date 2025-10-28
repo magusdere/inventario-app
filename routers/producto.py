@@ -5,6 +5,7 @@ from typing import List, Optional
 from config.database import get_async_db
 from sqlalchemy.ext.asyncio import AsyncSession
 from models.producto import Producto
+from models.movimiento_stock import MovimientoStock
 from schemas.producto import ProductoCreate, ProductoUpdate, ProductoResponse
 
 router = APIRouter(prefix="/productos", tags=["Productos"])
@@ -41,9 +42,31 @@ async def obtener_producto(id: int, db: AsyncSession = Depends(get_async_db)):
 #  CREAR
 @router.post("/", response_model=ProductoResponse, status_code=201)
 async def crear_producto(data: ProductoCreate, db: AsyncSession = Depends(get_async_db)):
-    nuevo = Producto(**data.dict())
-    db.add(nuevo)
-    await db.commit()
+    # Creamos el producto con stock 0 y luego registramos una entrada por el stock inicial
+    # para mantener el historial de movimientos consistente.
+    async with db.begin():
+        stock_inicial = int(data.stock_actual or 0)
+
+        # Crear producto con stock 0 inicialmente
+        campos_producto = data.dict()
+        campos_producto["stock_actual"] = 0
+        nuevo = Producto(**campos_producto)
+        db.add(nuevo)
+        # flush para obtener el ID sin cerrar la transacción
+        await db.flush()
+
+        # Si hay stock inicial, registramos un movimiento de entrada
+        if stock_inicial > 0:
+            mov = MovimientoStock(
+                id_producto=nuevo.id,
+                tipo='entrada',
+                cantidad=stock_inicial,
+                id_usuario=None,
+            )
+            db.add(mov)
+            # Actualizamos el stock del producto como lo haría el flujo de movimientos
+            nuevo.stock_actual = int(nuevo.stock_actual) + stock_inicial
+
     await db.refresh(nuevo)
     return nuevo
 

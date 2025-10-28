@@ -1,41 +1,28 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 
-// Páginas
-import ProductoList from "./components/Productos/ProductoList";
+import DashboardPage from "./pages/Dashboard";
+import ProductosPage from "./pages/Productos";
+import CategoriasPage from "./pages/Categorias";
+import ProveedoresPage from "./pages/Proveedores";
+import UsuariosPage from "./pages/Usuarios";
 import MovimientosPage from "./pages/Movimientos";
+import ReportesPage from "./pages/Reportes";
 
-function App() {
+export default function App() {
   return (
     <BrowserRouter>
       <Layout>
         <Routes>
-          <Route
-            path="/"
-            element={<h2 className="text-2xl font-semibold text-gray-700">Dashboard</h2>}
-          />
-          <Route path="/productos" element={<ProductoList />} />
-          <Route
-            path="/categorias"
-            element={<h2 className="text-xl font-semibold text-gray-700">Gestión de Categorías</h2>}
-          />
-          <Route
-            path="/proveedores"
-            element={<h2 className="text-xl font-semibold text-gray-700">Gestión de Proveedores</h2>}
-          />
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/productos" element={<ProductosPage />} />
+          <Route path="/categorias" element={<CategoriasPage />} />
+          <Route path="/proveedores" element={<ProveedoresPage />} />
+          <Route path="/usuarios" element={<UsuariosPage />} />
           <Route path="/movimientos" element={<MovimientosPage />} />
-          <Route
-            path="/usuarios"
-            element={<h2 className="text-xl font-semibold text-gray-700">Usuarios</h2>}
-          />
-          <Route
-            path="/reportes"
-            element={<h2 className="text-xl font-semibold text-gray-700">Reportes</h2>}
-          />
+          <Route path="/reportes" element={<ReportesPage />} />
         </Routes>
       </Layout>
     </BrowserRouter>
   );
 }
-
-export default App;

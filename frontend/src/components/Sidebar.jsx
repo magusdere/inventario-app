@@ -1,37 +1,42 @@
-import { Link, useLocation } from "react-router-dom";
-import { Package, BarChart2, Users, Layers, Truck, MoveUp, Home } from "lucide-react";
+import { NavLink } from "react-router-dom";
 
-const links = [
-  { to: "/", label: "Dashboard", icon: Home },
-  { to: "/productos", label: "Productos", icon: Package },
-  { to: "/categorias", label: "Categorías", icon: Layers },
-  { to: "/proveedores", label: "Proveedores", icon: Truck },
-  { to: "/movimientos", label: "Movimientos", icon: MoveUp },
-  { to: "/usuarios", label: "Usuarios", icon: Users },
-  { to: "/reportes", label: "Reportes", icon: BarChart2 },
-];
+const linkBase =
+  "flex items-center gap-3 px-3 py-2 rounded-lg transition";
+const linkActive =
+  "bg-primary text-white";
+const linkInactive =
+  "text-gray-700 hover:bg-primary/10 hover:text-primary";
+
+function Item({ to, label }) {
+  return (
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        `${linkBase} ${isActive ? linkActive : linkInactive}`
+      }
+    >
+      <span className="text-sm font-medium">{label}</span>
+    </NavLink>
+  );
+}
 
 export default function Sidebar() {
-  const location = useLocation();
-
   return (
-    <aside className="w-60 bg-white border-r border-gray-200 min-h-screen shadow-sm">
-      <nav className="mt-6">
-        <ul className="space-y-1">
-          {links.map(({ to, label, icon: Icon }) => (
-            <li key={to}>
-              <Link
-                to={to}
-                className={`flex items-center px-5 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors ${
-                  location.pathname === to ? "bg-blue-50 text-blue-600 font-semibold" : ""
-                }`}
-              >
-                <Icon className="w-5 h-5 mr-3" />
-                {label}
-              </Link>
-            </li>
-          ))}
-        </ul>
+    <aside
+      className="hidden md:block border-r bg-white p-4"
+      style={{ width: "var(--sidebar-width)" }}
+    >
+      <div className="mb-2 px-1 text-xs uppercase tracking-wide text-gray-500">
+        Menú
+      </div>
+      <nav className="flex flex-col gap-1">
+        <Item to="/" label="Dashboard" />
+        <Item to="/productos" label="Productos" />
+        <Item to="/categorias" label="Categorías" />
+        <Item to="/proveedores" label="Proveedores" />
+        <Item to="/usuarios" label="Usuarios" />
+        <Item to="/movimientos" label="Movimientos" />
+        <Item to="/reportes" label="Reportes" />
       </nav>
     </aside>
   );
