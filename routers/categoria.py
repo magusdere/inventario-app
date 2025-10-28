@@ -1,51 +1,61 @@
+# routers/categoria.py
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from config.database import SessionLocal
-from models.categoria import Categoria
-from schemas.categoria import CategoriaBase, CategoriaResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 from typing import List
+
+from config.database import get_async_db
+from models.categoria import Categoria
+from schemas.categoria import CategoriaBase
 
 router = APIRouter(prefix="/categorias", tags=["Categorías"])
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+#  Listar
+@router.get("/", response_model=List[CategoriaBase])
+async def listar_categorias(db: AsyncSession = Depends(get_async_db)):
+    result = await db.execute(select(Categoria))
+    return result.scalars().all()
 
-# Listar todas las categorías
-@router.get("/", response_model=List[CategoriaResponse])
-def listar_categorias(db: Session = Depends(get_db)):
-    return db.query(Categoria).all()
+#  Obtener por ID
+@router.get("/{id}", response_model=CategoriaBase)
+async def obtener_categoria(id: int, db: AsyncSession = Depends(get_async_db)):
+    result = await db.execute(select(Categoria).where(Categoria.id == id))
+    categoria = result.scalar_one_or_none()
+    if not categoria:
+        raise HTTPException(status_code=404, detail="Categoría no encontrada")
+    return categoria
 
-# Crear una nueva categoría
-@router.post("/", response_model=CategoriaResponse)
-def crear_categoria(categoria: CategoriaBase, db: Session = Depends(get_db)):
-    nueva = Categoria(nombre=categoria.nombre, descripcion=categoria.descripcion)
+#  Crear
+@router.post("/", response_model=CategoriaBase, status_code=201)
+async def crear_categoria(data: CategoriaBase, db: AsyncSession = Depends(get_async_db)):
+    nueva = Categoria(**data.dict())
     db.add(nueva)
-    db.commit()
-    db.refresh(nueva)
+    await db.commit()
+    await db.refresh(nueva)
     return nueva
 
-# Actualizar categoría
-@router.put("/{id}", response_model=CategoriaResponse)
-def actualizar_categoria(id: int, categoria: CategoriaBase, db: Session = Depends(get_db)):
-    cat = db.query(Categoria).filter(Categoria.id == id).first()
-    if not cat:
+#  Actualizar
+@router.put("/{id}", response_model=CategoriaBase)
+async def actualizar_categoria(id: int, data: CategoriaBase, db: AsyncSession = Depends(get_async_db)):
+    result = await db.execute(select(Categoria).where(Categoria.id == id))
+    categoria = result.scalar_one_or_none()
+    if not categoria:
         raise HTTPException(status_code=404, detail="Categoría no encontrada")
-    cat.nombre = categoria.nombre
-    cat.descripcion = categoria.descripcion
-    db.commit()
-    db.refresh(cat)
-    return cat
 
-# Eliminar categoría
-@router.delete("/{id}")
-def eliminar_categoria(id: int, db: Session = Depends(get_db)):
-    cat = db.query(Categoria).filter(Categoria.id == id).first()
-    if not cat:
+    for campo, valor in data.dict(exclude_unset=True).items():
+        setattr(categoria, campo, valor)
+
+    await db.commit()
+    await db.refresh(categoria)
+    return categoria
+
+#  Eliminar
+@router.delete("/{id}", status_code=204)
+async def eliminar_categoria(id: int, db: AsyncSession = Depends(get_async_db)):
+    result = await db.execute(select(Categoria).where(Categoria.id == id))
+    categoria = result.scalar_one_or_none()
+    if not categoria:
         raise HTTPException(status_code=404, detail="Categoría no encontrada")
-    db.delete(cat)
-    db.commit()
-    return {"msg": "Categoría eliminada correctamente"}
+
+    await db.delete(categoria)
+    await db.commit()

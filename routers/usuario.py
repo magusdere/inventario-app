@@ -1,72 +1,41 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from config.database import SessionLocal
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from typing import List
+
+from config.database import get_async_db
 from models.usuario import Usuario
 from schemas.usuario import UsuarioBase, UsuarioResponse
-from typing import List
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
-# --- Dependencia de sesión de BD ---
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-# --- Listar todos los usuarios ---
 @router.get("/", response_model=List[UsuarioResponse])
-def listar_usuarios(db: Session = Depends(get_db)):
-    return db.query(Usuario).all()
+async def listar_usuarios(db: AsyncSession = Depends(get_async_db)):
+    result = await db.execute(select(Usuario))
+    return result.scalars().all()
 
+@router.get("/{id}", response_model=UsuarioResponse)
+async def obtener_usuario(id: int, db: AsyncSession = Depends(get_async_db)):
+    result = await db.execute(select(Usuario).where(Usuario.id == id))
+    usuario = result.scalar_one_or_none()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return usuario
 
-# --- Crear un nuevo usuario ---
-@router.post("/", response_model=UsuarioResponse)
-def crear_usuario(usuario: UsuarioBase, db: Session = Depends(get_db)):
-    nuevo = Usuario(
-        nombre=usuario.nombre,
-        email=usuario.email,
-        rol=usuario.rol,
-        password=usuario.password
-    )
+@router.post("/", response_model=UsuarioResponse, status_code=201)
+async def crear_usuario(data: UsuarioBase, db: AsyncSession = Depends(get_async_db)):
+    # data.password_hash ya debe venir hasheado; más adelante podemos agregar hash en servidor
+    nuevo = Usuario(**data.dict())
     db.add(nuevo)
-    db.commit()
-    db.refresh(nuevo)
+    await db.commit()
+    await db.refresh(nuevo)
     return nuevo
 
-
-# --- Obtener un usuario por ID ---
-@router.get("/{id}", response_model=UsuarioResponse)
-def obtener_usuario(id: int, db: Session = Depends(get_db)):
-    usr = db.query(Usuario).filter(Usuario.id == id).first()
-    if not usr:
+@router.delete("/{id}", status_code=204)
+async def eliminar_usuario(id: int, db: AsyncSession = Depends(get_async_db)):
+    result = await db.execute(select(Usuario).where(Usuario.id == id))
+    usuario = result.scalar_one_or_none()
+    if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    return usr
-
-
-# --- Actualizar un usuario ---
-@router.put("/{id}", response_model=UsuarioResponse)
-def actualizar_usuario(id: int, usuario: UsuarioBase, db: Session = Depends(get_db)):
-    usr = db.query(Usuario).filter(Usuario.id == id).first()
-    if not usr:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    usr.nombre = usuario.nombre
-    usr.email = usuario.email
-    usr.rol = usuario.rol
-    usr.password = usuario.password
-    db.commit()
-    db.refresh(usr)
-    return usr
-
-
-# --- Eliminar un usuario ---
-@router.delete("/{id}")
-def eliminar_usuario(id: int, db: Session = Depends(get_db)):
-    usr = db.query(Usuario).filter(Usuario.id == id).first()
-    if not usr:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    db.delete(usr)
-    db.commit()
-    return {"msg": "Usuario eliminado correctamente"}
+    await db.delete(usuario)
+    await db.commit()
